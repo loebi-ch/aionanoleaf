@@ -1,4 +1,5 @@
 # Copyright 2021, Milan Meulemans.
+# Changes 2025 by @loebi-ch to support getting state, effect and effects list for Nanoleaf Matter WiFi Essentials devices
 #
 # This file is part of aionanoleaf.
 #
@@ -302,31 +303,70 @@ class Nanoleaf:
         """Get all device info."""
         resp = await self._request("get", "")
         data: InfoData = await resp.json()
+        
+        if 'name' not in data:
+            raise Unavailable
+
         self._name = data["name"]
         self._serial_no = data["serialNo"]
         self._manufacturer = data["manufacturer"]
         self._firmware_version = data["firmwareVersion"]
         self._hardware_version = data.get("hardwareVersion")
         self._model = data["model"]
-        self._is_on = data["state"]["on"]["value"]
-        self._brightness = data["state"]["brightness"]["value"]
-        self._brightness_max = data["state"]["brightness"]["max"]
-        self._brightness_min = data["state"]["brightness"]["min"]
-        self._hue = data["state"]["hue"]["value"]
-        self._hue_max = data["state"]["hue"]["max"]
-        self._hue_min = data["state"]["hue"]["min"]
-        self._saturation = data["state"]["sat"]["value"]
-        self._saturation_max = data["state"]["sat"]["max"]
-        self._saturation_min = data["state"]["sat"]["min"]
-        self._color_temperature = data["state"]["ct"]["value"]
-        self._color_temperature_max = data["state"]["ct"]["max"]
-        self._color_temperature_min = data["state"]["ct"]["min"]
-        self._color_mode = data["state"]["colorMode"]
-        self._effects_list = data["effects"]["effectsList"]
-        self._effect = data["effects"]["select"]
-        self._panels = {Panel(panel) for panel in data["panelLayout"]["layout"]["positionData"]}
-        if self._model in EMERSION_MODELS:
-            await self.get_emersion()
+
+        # Nanoleaf Matter WiFi Essentials
+        if 'state' not in data:
+            resp = await self._request("get", "state")
+            data = await resp.json()
+            self._is_on = data["on"]["value"]
+            self._brightness = data["brightness"]["value"]
+            self._brightness_max = data["brightness"]["max"]
+            self._brightness_min = data["brightness"]["min"]
+            self._hue = data["hue"]["value"]
+            self._hue_max = data["hue"]["max"]
+            self._hue_min = data["hue"]["min"]
+            self._saturation = data["sat"]["value"]
+            self._saturation_max = data["sat"]["max"]
+            self._saturation_min = data["sat"]["min"]
+            self._color_temperature = data["ct"]["value"]
+            self._color_temperature_max = data["ct"]["max"]
+            self._color_temperature_min = data["ct"]["min"]
+            self._color_mode = data["colorMode"]
+            
+            # get selected effect
+            resp = await self._request("get", "effects/select")
+            data = await resp.text()
+            self._effect = data
+            
+            # get effects list
+            resp = await self._request("put", "effects", {"write":{"command":"requestAll"}})
+            data = await resp.json()
+            effects_list = []
+            for animation in data["animations"]:
+                effects_list.append(animation["animName"])
+            self._effects_list = effects_list
+        
+        # Official API for older devices
+        else:
+            self._is_on = data["state"]["on"]["value"]
+            self._brightness = data["state"]["brightness"]["value"]
+            self._brightness_max = data["state"]["brightness"]["max"]
+            self._brightness_min = data["state"]["brightness"]["min"]
+            self._hue = data["state"]["hue"]["value"]
+            self._hue_max = data["state"]["hue"]["max"]
+            self._hue_min = data["state"]["hue"]["min"]
+            self._saturation = data["state"]["sat"]["value"]
+            self._saturation_max = data["state"]["sat"]["max"]
+            self._saturation_min = data["state"]["sat"]["min"]
+            self._color_temperature = data["state"]["ct"]["value"]
+            self._color_temperature_max = data["state"]["ct"]["max"]
+            self._color_temperature_min = data["state"]["ct"]["min"]
+            self._color_mode = data["state"]["colorMode"]
+            self._effects_list = data["effects"]["effectsList"]
+            self._effect = data["effects"]["select"]
+            self._panels = {Panel(panel) for panel in data["panelLayout"]["layout"]["positionData"]}
+            if self._model in EMERSION_MODELS:
+                await self.get_emersion()
         
     async def get_emersion(self) -> None:
         #4D/Emersion implementation. (This is how they spelt emersion in the API, probably should be Immersion)

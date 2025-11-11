@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 import socket
 from typing import Any, Callable
 
@@ -52,8 +51,6 @@ from .exceptions import (
 )
 from .layout import Panel
 from .typing import InfoData, EmersionData
-
-_LOGGER = logging.getLogger(__name__)
 
 EMERSION_MODELS = ["NL69"]
 EMERSION_MODES = {6: "1D", 2: "2D", 3: "3D", 5: "4D"}
@@ -325,19 +322,16 @@ class Nanoleaf:
         try:
             self._effects_list = data["effects"]["effectsList"]
         except KeyError:
-            _LOGGER.warning("Effects list is not available, try to get it from the API.")
             self._effects_list = await self.get_effects()
 
         try:
             self._effect = data["effects"]["select"]
         except KeyError:
-            _LOGGER.warning("Selected effect is not available, try to get it from the API.")
             self._effect = await self.get_selected_effect()
 
         try:
             self._panels = {Panel(panel) for panel in data["panelLayout"]["layout"]["positionData"]}
         except KeyError:
-            _LOGGER.warning("Panel layout not available, panels will not be populated.")
             self._panels = set()
         
         if self._model in EMERSION_MODELS:
@@ -581,7 +575,6 @@ class Nanoleaf:
             socket_port = await self._open_websocket_for_touch_data_stream(
                 touch_stream_callback, local_ip, local_port
             )
-            _LOGGER.debug("Listening for UDP touch events on socket port: %s", socket_port)
         await self._listen_for_server_sent_events(
             state_callback,
             layout_callback,
